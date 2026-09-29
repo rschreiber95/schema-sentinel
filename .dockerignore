@@ -1,0 +1,6 @@
+.git
+.gitignore
+AGENTS.md
+**/__pycache__
+**/node_modules
+**/dist

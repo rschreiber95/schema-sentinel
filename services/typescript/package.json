@@ -1,0 +1,17 @@
+{
+  "name": "schema-sentinel-typescript-service",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "build": "tsc --project tsconfig.json",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "protobufjs": "7.6.6"
+  },
+  "devDependencies": {
+    "@types/node": "22.18.6",
+    "typescript": "5.9.2"
+  }
+}
