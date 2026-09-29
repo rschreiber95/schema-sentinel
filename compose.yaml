@@ -38,3 +38,19 @@ services:
       interval: 2s
       timeout: 2s
       retries: 15
+
+  roundtrip-test:
+    profiles:
+      - test
+    build:
+      context: .
+      dockerfile: services/python/Dockerfile
+    environment:
+      PYTHON_RELAY_URL: http://python-service:8000/relay
+    depends_on:
+      python-service:
+        condition: service_healthy
+    command:
+      - python
+      - -m
+      - src.e2e_test

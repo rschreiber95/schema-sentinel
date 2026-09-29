@@ -39,3 +39,16 @@ Stop the testbed with `Ctrl+C`.
 
 The generated language bindings are created inside the container images and
 are not committed to the repository.
+
+### Run the round-trip test
+
+SS-20 adds a one-command check that serializes a known message, sends it
+through both services, deserializes the result, and verifies every field:
+
+```bash
+./scripts/test-roundtrip.sh
+```
+
+The command exits unsuccessfully if either service is unhealthy, the message
+cannot be decoded, any original field changes, or the service trace is not
+exactly `python -> typescript`.
