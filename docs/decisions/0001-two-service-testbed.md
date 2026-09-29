@@ -17,7 +17,7 @@ branch.
 
 ## Decision
 
-- Define a minimal `TestbedMessage` in `proto/testbed.proto`.
+- Define a minimal `TestbedMessage` in `testbed/proto/testbed.proto`.
 - Send its binary Protocol Buffers representation over HTTP with the
   `application/x-protobuf` content type.
 - Let the Python service accept the client request and forward it to the
