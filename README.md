@@ -4,14 +4,14 @@ COP4934 Fall 2026 Senior Design Project.
 
 ## Two-service testbed seed
 
-The first testbed slice sends one Protocol Buffers message through two small
-services:
+The testbed sends one Protocol Buffers message through small services written
+in three languages:
 
 ```text
-client -> Python relay -> TypeScript relay -> Python relay -> client
+client -> Python relay -> TypeScript relay -> C# relay -> client
 ```
 
-Both runtimes read [`proto/testbed.proto`](proto/testbed.proto). The services
+All runtimes read [`proto/testbed.proto`](proto/testbed.proto). The services
 intentionally use a small HTTP transport so the team can focus on schema
 behavior before choosing a larger messaging system.
 
@@ -32,7 +32,7 @@ curl http://localhost:8000/demo
 The response includes the original message and the two runtimes it visited:
 
 ```json
-{"message_id":"demo-001","payload":"hello from Schema Sentinel","visited_services":["python","typescript"]}
+{"message_id":"demo-001","payload":"hello from Schema Sentinel","visited_services":["python","typescript","csharp"]}
 ```
 
 Stop the testbed with `Ctrl+C`.
@@ -49,6 +49,6 @@ through both services, deserializes the result, and verifies every field:
 ./scripts/test-roundtrip.sh
 ```
 
-The command exits unsuccessfully if either service is unhealthy, the message
+The command exits unsuccessfully if any service is unhealthy, the message
 cannot be decoded, any original field changes, or the service trace is not
-exactly `python -> typescript`.
+exactly `python -> typescript -> csharp`.

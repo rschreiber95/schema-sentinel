@@ -42,7 +42,7 @@ def main() -> int:
     expected = {
         "message_id": sent.message_id,
         "payload": sent.payload,
-        "visited_services": ["python", "typescript"],
+        "visited_services": ["python", "typescript", "csharp"],
     }
     actual = message_as_dict(received)
 
@@ -51,7 +51,7 @@ def main() -> int:
         print(json.dumps({"expected": expected, "actual": actual}, indent=2))
         return 1
 
-    print("PASS: protobuf message survived both runtimes")
+    print("PASS: protobuf message survived all three runtimes")
     print(json.dumps(actual, separators=(",", ":")))
     return 0
 

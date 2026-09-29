@@ -4,6 +4,8 @@ import protobuf from "protobufjs";
 
 const port = Number.parseInt(process.env.PORT ?? "8001", 10);
 const protoPath = resolve(process.cwd(), "proto", "testbed.proto");
+const csharpRelayUrl =
+  process.env.CSHARP_RELAY_URL ?? "http://localhost:8002/relay";
 
 async function readBody(request: IncomingMessage): Promise<Buffer> {
   const chunks: Buffer[] = [];
@@ -59,11 +61,21 @@ async function main(): Promise<void> {
         TestbedMessage.create(message),
       ).finish();
 
+      const csharpResponse = await fetch(csharpRelayUrl, {
+        method: "POST",
+        headers: { "content-type": "application/x-protobuf" },
+        body: Buffer.from(encoded),
+      });
+      if (!csharpResponse.ok) {
+        throw new Error(`C# relay returned ${csharpResponse.status}`);
+      }
+      const relayed = Buffer.from(await csharpResponse.arrayBuffer());
+
       response.writeHead(200, {
         "content-type": "application/x-protobuf",
-        "content-length": encoded.length,
+        "content-length": relayed.length,
       });
-      response.end(Buffer.from(encoded));
+      response.end(relayed);
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       sendJson(response, 400, { error: "invalid protobuf message", detail });

@@ -33,3 +33,9 @@ branch.
 - Formal round-trip assertions belong to SS-20 rather than this seed.
 - The SISO enum catalog can be imported after SS-33 is merged and its naming and
   generated-file concerns are resolved.
+
+## Follow-up
+
+SS-34 adds C# as the third runtime. It uses the same HTTP relay contract and
+the same schema, extending the route to `Python -> TypeScript -> C#` without
+changing the message definition.
