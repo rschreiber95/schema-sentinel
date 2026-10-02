@@ -1,0 +1,7 @@
+syntax = "proto3";
+
+package simulation.v2;
+
+message Entity {
+  string entity_id = 1;
+}

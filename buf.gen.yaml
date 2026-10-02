@@ -1,0 +1,14 @@
+# Responsible for handling the serialization of the .proto files into language specific forms
+# The .proto files need serialized for Python, C# and Typescript independently
+# To run this yaml file, enter this command from the root: buf generate
+
+version: v2
+plugins:
+  - remote: buf.build/protocolbuffers/python:v25.1
+    out: generated/python # Outputs python proto code into /python
+  - remote: buf.build/protocolbuffers/csharp:v25.1
+    out: generated/csharp # Outputs C# proto code into /csharp
+    opt:
+      - base_namespace=Simulation
+  - remote: buf.build/community/stephenh-ts-proto:v1.165.0
+    out: generated/ts # Outputs typescript proto code into /ts
