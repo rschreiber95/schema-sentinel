@@ -1,41 +1,46 @@
-# Decision 0001: Seed the testbed with HTTP and Protocol Buffers
+# Decision 0001: HTTP conformance testbed using canonical Entity schemas
 
 ## Status
 
-Accepted for the initial testbed seed.
+Accepted for the initial testbed; updated after integration of main's shared
+Protobuf and runtime implementation in PR #2.
 
 ## Context
 
-SS-19 needs two small services in different languages that share one schema.
-The transport is not the research question yet, and choosing a broker now would
-add operational work before the team has a stable cross-runtime baseline.
-
-SS-33 currently proposes a generated SISO enumeration catalog. That catalog is
-useful schema input, but it does not define a message envelope that the services
-can exchange. It is also still under review, so SS-19 should not depend on its
-branch.
+The first seed used a separate TestbedMessage schema and two relay services;
+SS-34 added C#. Main now contains versioned Entity schemas, generated bindings,
+and Python, TypeScript, and C# runtime examples. Keeping both sets would produce
+competing sources of truth. The current task requires preserving main's schemas
+and verifying actual decoder agreement across all three runtimes.
 
 ## Decision
 
-- Define a minimal `TestbedMessage` in `testbed/proto/testbed.proto`.
-- Send its binary Protocol Buffers representation over HTTP with the
-  `application/x-protobuf` content type.
-- Let the Python service accept the client request and forward it to the
-  TypeScript service.
-- Generate Python bindings during the container build and load the same schema
-  dynamically in TypeScript.
-- Keep generated bindings out of version control.
+- Use main's `proto/v1/entity.proto` for the conformance route. Preserve
+  `proto/v2/entity.proto` as the existing name-removal fixture for change detection.
+- Preserve committed generated bindings and the three runtime entry points under
+  `runtimes/`. Add a `--serve` mode to those entry points; remove duplicate
+  testbed runtime code and the TestbedMessage schema.
+- Send binary Entity over HTTP with `application/x-protobuf`. Keep the route
+  Python -> TypeScript -> C# and record decoded values before forwarding.
+- Return decoder observations as JSON in `X-Schema-Sentinel-Observations` and
+  the changing trace in `X-Service-Trace`. Neither is a canonical schema field.
+- Assert every decoder's stable fields and the returned payload against the
+  expected input. Assert trace order separately. Exercise empty, Unicode, and
+  escaped values; add negative tests for intermediate mismatches.
+- Make local builds and process orchestration the Docker-free development path.
+  Keep Compose as an optional one-command integration workflow using identical
+  sources and bindings. Use main's .NET 8 target for C#.
 
-## Consequences
+## Consequences and limitations
 
-- The seed can be run with one Docker Compose command.
-- A third runtime can implement the same small relay contract later.
-- Formal round-trip assertions belong to SS-20 rather than this seed.
-- The SISO enum catalog can be imported after SS-33 is merged and its naming and
-  generated-file concerns are resolved.
+This provides a reproducible three-language conformance baseline. It does not yet
+implement pub/sub, schema propagation, patch generation, a validation dashboard,
+or the twenty-case evaluation benchmark. v2 examples avoid accessing the removed
+field, but v2 relay conformance is not implemented. The experimental impact
+locator continues to inspect the canonical runtime directory.
 
-## Follow-up
-
-SS-34 adds C# as the third runtime. It uses the same HTTP relay contract and
-the same schema, extending the route to `Python -> TypeScript -> C#` without
-changing the message definition.
+Observation headers are small trusted test evidence, not scalable telemetry or a
+security guarantee. Generated bindings are committed because main established
+that workflow; regeneration requires Buf and its remote plugins. The inherited
+tracked root node_modules are preserved during this integration; active runtime
+dependencies are installed from the TypeScript lockfile under runtimes/typescript.

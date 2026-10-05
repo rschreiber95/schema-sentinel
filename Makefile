@@ -1,24 +1,31 @@
-.PHONY: all generate run-python run-csharp run-ts run-all clean
-
-all: generate run-all
-
+PYTHON ?= .venv/bin/python
+.PHONY: all setup build generate run-python run-csharp run-ts run-all test-unit test-local test-docker descriptors
+all: build test-unit test-local
+setup:
+	python3 -m venv .venv
+	.venv/bin/python -m pip install -r runtimes/python/requirements.txt
+	npm ci --prefix runtimes/typescript
+	dotnet restore runtimes/csharp/CsharpApp.csproj
+build:
+	npm run build --prefix runtimes/typescript
+	dotnet build runtimes/csharp/CsharpApp.csproj --configuration Release
+	$(PYTHON) -m compileall -q runtimes/python testbed/tests testbed/scripts
+# Generated bindings from main are committed; regenerate only when schemas change.
 generate:
-	@echo "--- Generating Protobuf Code ---"
 	buf generate
-
 run-python:
-	@echo "--- Running Python ---"
-	python python_app/main.py
-
+	$(PYTHON) runtimes/python/main.py
 run-csharp:
-	@echo "--- Running C# ---"
-	dotnet run --project csharp_app/CsharpApp.csproj
-
+	dotnet run --project runtimes/csharp/CsharpApp.csproj
 run-ts:
-	@echo "--- Running TypeScript ---"
-	cd ts_app && npx ts-node main.ts
-
+	npm start --prefix runtimes/typescript
 run-all: run-python run-csharp run-ts
-
-clean:
-	rm -rf generated/
+test-unit:
+	$(PYTHON) -m unittest discover -s testbed/tests -p 'test_*.py' -v
+test-local: build test-unit
+	$(PYTHON) testbed/scripts/run-local.py
+test-docker:
+	./testbed/scripts/test-roundtrip.sh
+descriptors:
+	buf build --path proto/v1 --as-file-descriptor-set -o v1.bin
+	buf build --path proto/v2 --as-file-descriptor-set -o v2.bin

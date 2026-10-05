@@ -1,8 +1,8 @@
 services:
   csharp-service:
     build:
-      context: .
-      dockerfile: services/csharp/Dockerfile
+      context: ..
+      dockerfile: testbed/services/csharp/Dockerfile
     environment:
       ASPNETCORE_URLS: http://0.0.0.0:8002
     ports:
@@ -11,7 +11,7 @@ services:
       test:
         - CMD
         - dotnet
-        - SchemaSentinel.Testbed.dll
+        - CsharpApp.dll
         - --healthcheck
       interval: 2s
       timeout: 2s
@@ -19,8 +19,8 @@ services:
 
   typescript-service:
     build:
-      context: .
-      dockerfile: services/typescript/Dockerfile
+      context: ..
+      dockerfile: testbed/services/typescript/Dockerfile
     environment:
       PORT: "8001"
       CSHARP_RELAY_URL: http://csharp-service:8002/relay
@@ -41,8 +41,8 @@ services:
 
   python-service:
     build:
-      context: .
-      dockerfile: services/python/Dockerfile
+      context: ..
+      dockerfile: testbed/services/python/Dockerfile
     environment:
       PORT: "8000"
       TYPESCRIPT_RELAY_URL: http://typescript-service:8001/relay
@@ -65,8 +65,8 @@ services:
     profiles:
       - test
     build:
-      context: .
-      dockerfile: services/python/Dockerfile
+      context: ..
+      dockerfile: testbed/services/python/Dockerfile
     environment:
       PYTHON_RELAY_URL: http://python-service:8000/relay
     depends_on:
@@ -74,5 +74,4 @@ services:
         condition: service_healthy
     command:
       - python
-      - -m
-      - src.e2e_test
+      - testbed/tests/e2e_test.py

@@ -1,17 +1,9 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
-
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
-
-COPY proto /src/proto
-COPY services/csharp /src/services/csharp
-
-WORKDIR /src/services/csharp
-RUN dotnet restore
-RUN dotnet publish --configuration Release --output /app/publish --no-restore
-
-FROM mcr.microsoft.com/dotnet/aspnet:10.0
-
+COPY generated/csharp ./generated/csharp
+COPY runtimes/csharp ./runtimes/csharp
+RUN dotnet publish runtimes/csharp/CsharpApp.csproj --configuration Release --output /app/publish
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
 WORKDIR /app
 COPY --from=build /app/publish .
-
-CMD ["dotnet", "SchemaSentinel.Testbed.dll"]
+CMD ["dotnet", "CsharpApp.dll", "--serve"]

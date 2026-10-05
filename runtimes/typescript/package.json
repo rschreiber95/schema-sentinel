@@ -5,7 +5,7 @@
   "license": "MIT",
   "scripts": {
     "build": "tsc --project tsconfig.json",
-    "start": "node dist/server.js"
+    "start": "node dist/runtimes/typescript/main.js"
   },
   "dependencies": {
     "protobufjs": "7.6.6"
