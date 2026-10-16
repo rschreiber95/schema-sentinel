@@ -69,13 +69,13 @@ it. The launcher builds the project, then runs the tests and services.
 
 ```mermaid
 flowchart TD
-    schema["proto/v1/entity.proto<br/>Defines the Entity message"]
-    bindings["generated/<br/>Python, TypeScript, and C# bindings"]
-    services["runtimes/<br/>The three service implementations"]
-    launcher["run_local.py<br/>Installs dependencies and builds the code"]
-    unit["testbed/tests/test_*.py<br/>Checks validation and local setup behavior"]
-    runner["testbed/scripts/run-local.py<br/>Manages service processes"]
-    integration["testbed/tests/e2e_test.py<br/>Sends messages and checks the results"]
+    schema["proto/v1/entity.proto<br/>Message schema"]
+    bindings["generated/<br/>Language bindings"]
+    services["runtimes/<br/>Python, TypeScript, and C#"]
+    launcher["run_local.py<br/>Setup and build"]
+    unit["testbed/tests/test_*.py<br/>Unit tests"]
+    runner["run-local.py<br/>Start and stop services"]
+    integration["e2e_test.py<br/>Round-trip tests"]
 
     schema -->|buf generate| bindings
     bindings -->|imported by| services
@@ -86,6 +86,7 @@ flowchart TD
     integration <-->|messages and results| services
 ```
 
+The service runner is `testbed/scripts/run-local.py`; the tests live in `testbed/tests/`.
 The message route is `e2e_test.py -> Python :8000 -> TypeScript :8001 -> C# :8002`.
 The response returns along the same path. Each service records the fields it
 decoded, and the test checks those values, the returned message, and service order.
@@ -96,9 +97,9 @@ The impact locator is a separate prototype, run with its own setup and command:
 ```mermaid
 flowchart LR
     schemas["proto/v1/ and proto/v2/<br/>Two schema versions"]
-    descriptors["v1.bin and v2.bin<br/>Schema descriptions built by Buf"]
-    locator["impact_locator.py<br/>Compares schemas and searches runtimes/"]
-    matches["Terminal output<br/>Possible affected code locations"]
+    descriptors["v1.bin and v2.bin<br/>Schema descriptions"]
+    locator["impact_locator.py<br/>Compare and search"]
+    matches["Terminal output<br/>Possible affected code"]
 
     schemas -->|buf build| descriptors
     descriptors --> locator
