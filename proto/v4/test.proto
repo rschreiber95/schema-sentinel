@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+message Vehicle {
+    int32 rename = 1; //field renamed
+    //string name = 2; //field removed
+    int32 speed = 3; //type changed
+    DamageState damage = 4;
+    int32 addition = 5; //field added
+}
+
+enum DamageState {
+    UNDAMAGED = 0;
+    //DAMAGED = 1; //enum removed
+    RENAMED = 2; //enum renamed
+    RETIRED = 7; //enum value changed
+    ADDED = 4; //enum added
+}
