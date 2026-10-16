@@ -21,8 +21,13 @@ git clone --branch codex/SS-19-SS-20-SS-34-testbed https://github.com/rschreiber
 cd schema-sentinel
 ```
 
-For an existing clone, run `git fetch origin` and
-`git switch codex/SS-19-SS-20-SS-34-testbed` first.
+For an existing clone, update the PR branch first:
+
+```sh
+git fetch origin
+git switch codex/SS-19-SS-20-SS-34-testbed
+git pull --ff-only
+```
 
 ### Windows (PowerShell or Command Prompt)
 
