@@ -35,16 +35,29 @@ tests, and sends four test messages through Python -> TypeScript -> C#. It stops
 the services when finished. Docker, Make, and Buf are not needed for this run.
 The first run needs an internet connection to download dependencies.
 
-Each case shows its input fields and a PASS result for each runtime, the returned
-message, and the service order. For example:
+Each case shows the input, encoded Protobuf bytes in hex, the values decoded by
+each service, and the returned bytes and fields. PASS results confirm that the
+decoded values and service order match the expectations. For example:
 
 ```text
 [PASS] 1/4 - Standard text
-  entity_id: "roundtrip-001"
-  name: "Sensor A"
-  Python: PASS | TypeScript: PASS | C#: PASS
-  Returned message: PASS | Service order: PASS
+  Input: entity_id="roundtrip-001", name="Sensor A"
+  Encoded request (25 bytes, hex):
+    0a 0d 72 6f 75 6e 64 74 72 69 70 2d 30 30 31 12
+    08 53 65 6e 73 6f 72 20 41
+  Decoded by each service:
+    Python [PASS]: entity_id="roundtrip-001", name="Sensor A"
+    TypeScript [PASS]: entity_id="roundtrip-001", name="Sensor A"
+    C# [PASS]: entity_id="roundtrip-001", name="Sensor A"
+  Encoded response (25 bytes, hex):
+    0a 0d 72 6f 75 6e 64 74 72 69 70 2d 30 30 31 12
+    08 53 65 6e 73 6f 72 20 41
+  Decoded response [PASS]: entity_id="roundtrip-001", name="Sensor A"
+  Service order [PASS]: Python -> TypeScript -> C#
 ```
+
+The empty-string case encodes to zero bytes because Protobuf omits default string
+values. The decoders still read both fields as empty strings.
 
 The final line should read `PASS: 4/4 round-trip cases passed.`
 

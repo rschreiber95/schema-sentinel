@@ -16,6 +16,19 @@ CASES = [
     {'entity_id': 'entity-004', 'name': 'quotes " and newline\n and backslash \\'},
 ]
 CASE_NAMES = ['Standard text', 'Empty strings', 'Unicode', 'Escaped text']
+RUNTIME_NAMES = {'python': 'Python', 'typescript': 'TypeScript', 'csharp': 'C#'}
+
+
+def format_fields(fields):
+    return ', '.join(f'{field}={json.dumps(value, ensure_ascii=False)}' for field, value in fields.items())
+
+
+def print_encoded(label, payload):
+    print(f'  {label} ({len(payload)} bytes, hex):')
+    if not payload:
+        print('    (empty)')
+    for offset in range(0, len(payload), 16):
+        print('    ' + payload[offset:offset + 16].hex(' '))
 
 
 def validate_evidence(expected, received, observations, trace):
@@ -37,22 +50,29 @@ def main():
     print('Route: Python -> TypeScript -> C#\n')
     for index, (name, fields) in enumerate(zip(CASE_NAMES, CASES, strict=True), start=1):
         sent = Entity(**fields)
+        sent_bytes = sent.SerializeToString()
         request = urllib.request.Request(
             os.environ.get('PYTHON_RELAY_URL', 'http://localhost:8000/relay'),
-            data=sent.SerializeToString(), method='POST',
+            data=sent_bytes, method='POST',
             headers={'Content-Type': 'application/x-protobuf'},
         )
         with urllib.request.urlopen(request, timeout=15) as response:
             assert response.headers.get_content_type() == 'application/x-protobuf', 'wrong content type'
-            received = Entity.FromString(response.read())
+            returned_bytes = response.read()
+            received = Entity.FromString(returned_bytes)
             observations = json.loads(response.headers['X-Schema-Sentinel-Observations'])
             trace = json.loads(response.headers['X-Service-Trace'])
         validate_evidence(fields, received, observations, trace)
         print(f'[PASS] {index}/{len(CASES)} - {name}')
-        for field, value in fields.items():
-            print(f'  {field}: {json.dumps(value, ensure_ascii=False)}')
-        print('  Python: PASS | TypeScript: PASS | C#: PASS')
-        print('  Returned message: PASS | Service order: PASS\n')
+        print(f'  Input: {format_fields(fields)}')
+        print_encoded('Encoded request', sent_bytes)
+        print('  Decoded by each service:')
+        for observation in observations:
+            runtime = RUNTIME_NAMES[observation['runtime']]
+            print(f'    {runtime} [PASS]: {format_fields(observation["fields"])}')
+        print_encoded('Encoded response', returned_bytes)
+        print(f'  Decoded response [PASS]: {format_fields({"entity_id": received.entity_id, "name": received.name})}')
+        print('  Service order [PASS]: ' + ' -> '.join(RUNTIME_NAMES[runtime] for runtime in trace) + '\n')
     print(f'PASS: {len(CASES)}/{len(CASES)} round-trip cases passed.')
 
 
