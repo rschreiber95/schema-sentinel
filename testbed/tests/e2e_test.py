@@ -15,6 +15,7 @@ CASES = [
     {'entity_id': 'entity-雪-🚀', 'name': 'Café / Δ / 🚀'},
     {'entity_id': 'entity-004', 'name': 'quotes " and newline\n and backslash \\'},
 ]
+CASE_NAMES = ['Standard text', 'Empty strings', 'Unicode', 'Escaped text']
 
 
 def validate_evidence(expected, received, observations, trace):
@@ -30,7 +31,11 @@ def validate_evidence(expected, received, observations, trace):
 
 
 def main():
-    for fields in CASES:
+    # Keep piped output usable on terminals with limited character support.
+    sys.stdout.reconfigure(errors='backslashreplace')
+    print('\nRound-trip tests')
+    print('Route: Python -> TypeScript -> C#\n')
+    for index, (name, fields) in enumerate(zip(CASE_NAMES, CASES, strict=True), start=1):
         sent = Entity(**fields)
         request = urllib.request.Request(
             os.environ.get('PYTHON_RELAY_URL', 'http://localhost:8000/relay'),
@@ -43,8 +48,12 @@ def main():
             observations = json.loads(response.headers['X-Schema-Sentinel-Observations'])
             trace = json.loads(response.headers['X-Service-Trace'])
         validate_evidence(fields, received, observations, trace)
-        print(json.dumps({'expected': fields, 'decoded': observations, 'service_trace': trace}, ensure_ascii=True))
-    print(f'PASS: {len(CASES)} cases; all three decoders agree on stable fields; service trace verified separately')
+        print(f'[PASS] {index}/{len(CASES)} - {name}')
+        for field, value in fields.items():
+            print(f'  {field}: {json.dumps(value, ensure_ascii=False)}')
+        print('  Python: PASS | TypeScript: PASS | C#: PASS')
+        print('  Returned message: PASS | Service order: PASS\n')
+    print(f'PASS: {len(CASES)}/{len(CASES)} round-trip cases passed.')
 
 
 if __name__ == '__main__':

@@ -14,20 +14,7 @@ Install these tools, then reopen your terminal:
 | [Node.js and npm](https://nodejs.org/en/download) | Node.js 22 or newer |
 | [.NET SDK](https://dotnet.microsoft.com/en-us/download/dotnet/8.0) | 8.0 SDK |
 
-Use the PR branch. For a new clone:
-
-```sh
-git clone --branch codex/SS-19-SS-20-SS-34-testbed https://github.com/rschreiber95/schema-sentinel.git
-cd schema-sentinel
-```
-
-For an existing clone, update the PR branch first:
-
-```sh
-git fetch origin
-git switch codex/SS-19-SS-20-SS-34-testbed
-git pull --ff-only
-```
+Open the project folder in your editor, then run the command below in its terminal.
 
 ### Windows (PowerShell or Command Prompt)
 
@@ -48,11 +35,18 @@ tests, and sends four test messages through Python -> TypeScript -> C#. It stops
 the services when finished. Docker, Make, and Buf are not needed for this run.
 The first run needs an internet connection to download dependencies.
 
-The last line should be:
+Each case shows its input fields and a PASS result for each runtime, the returned
+message, and the service order. For example:
 
 ```text
-PASS: 4 cases; all three decoders agree on stable fields; service trace verified separately
+[PASS] 1/4 - Standard text
+  entity_id: "roundtrip-001"
+  name: "Sensor A"
+  Python: PASS | TypeScript: PASS | C#: PASS
+  Returned message: PASS | Service order: PASS
 ```
+
+The final line should read `PASS: 4/4 round-trip cases passed.`
 
 To repeat the checks without reinstalling dependencies, add `test` to the command.
 To keep the services running for development, add `start`. Press Ctrl+C to stop them.
@@ -63,8 +57,8 @@ To keep the services running for development, add `start`. Press Ctrl+C to stop 
   terminal. For .NET, choose the **8.0 SDK**, not just the runtime.
 - **Python is missing:** install Python. On Windows, enable its command-line
   shortcuts; on Linux, your distribution may also require `python3-venv`.
-- **`run_local.py` is missing:** check out the PR branch and run from the folder
-  containing this README.
+- **`run_local.py` is missing:** run from the project folder containing this README
+  and `run_local.py`.
 - **A port is unavailable:** stop the program using ports 8000, 8001, or 8002.
 - **A service fails:** check its log in `testbed/artifacts/`.
 
