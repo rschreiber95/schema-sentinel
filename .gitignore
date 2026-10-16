@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+node_modules/
+dist/
+bin/
+obj/
+.DS_Store
+.venv/
+testbed/artifacts/
+.generated_semgrep.yml
