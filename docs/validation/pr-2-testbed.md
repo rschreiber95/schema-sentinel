@@ -8,7 +8,7 @@ dependencies, or compiled output.
 
 | Check | Result |
 | --- | --- |
-| `python3 run_local.py` | Dependencies installed; TypeScript and C# built; 10 unit tests and 4 round-trip cases passed |
+| `python3 run_local.py` | Dependencies installed; TypeScript and C# built; 11 unit tests and 4 round-trip cases passed |
 | C# Release build | Zero warnings and errors |
 | `python3 run_local.py start` | All three health checks passed; 4 messages passed from a second terminal |
 | Ctrl+C | Services stopped and ports 8000-8002 were released |
@@ -17,7 +17,7 @@ dependencies, or compiled output.
 
 The unit tests cover incorrect decoded values, missing services, changed returned
 values, wrong service order, interpreter paths, missing tools, occupied ports,
-and process cleanup. Round-trip cases cover normal strings, empty strings,
+process cleanup, and starting Python without reverse DNS. Round-trip cases cover normal strings, empty strings,
 Unicode, and escaped text.
 
 ## Operating-system checks

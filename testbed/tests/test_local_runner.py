@@ -19,6 +19,7 @@ def load_script(name, path):
 
 local = load_script('local_cli', ROOT / 'run_local.py')
 services = load_script('local_services', ROOT / 'testbed/scripts/run-local.py')
+python_runtime = load_script('python_runtime', ROOT / 'runtimes/python/main.py')
 
 
 class LocalRunnerTests(unittest.TestCase):
@@ -51,6 +52,11 @@ class LocalRunnerTests(unittest.TestCase):
             if process.poll() is None:
                 process.kill()
                 process.wait()
+
+    def test_python_server_starts_without_reverse_dns(self):
+        with patch('socket.getfqdn', side_effect=AssertionError('DNS unavailable')):
+            with python_runtime.RelayServer(('127.0.0.1', 0), python_runtime.Relay) as server:
+                self.assertGreater(server.server_port, 0)
 
 
 if __name__ == '__main__':

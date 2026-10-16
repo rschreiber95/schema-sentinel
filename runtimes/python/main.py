@@ -7,11 +7,19 @@ from pathlib import Path
 import sys
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from socketserver import TCPServer
 from google.protobuf.message import DecodeError
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "generated/python"))
 OBSERVATIONS = "X-Schema-Sentinel-Observations"
 TRACE = "X-Service-Trace"
+
+
+class RelayServer(ThreadingHTTPServer):
+    def server_bind(self):
+        # HTTPServer normally does a reverse DNS lookup, which can delay startup.
+        TCPServer.server_bind(self)
+        self.server_name, self.server_port = self.server_address
 
 
 def process_entity(raw_bytes: bytes, version: str):
@@ -69,7 +77,9 @@ if __name__ == "__main__":
     parser.add_argument("--version", choices=["v1", "v2"], default="v1")
     args = parser.parse_args()
     if args.serve:
-        ThreadingHTTPServer((os.environ.get("HOST", "0.0.0.0"), int(os.environ.get("PORT", "8000"))), Relay).serve_forever()
+        with RelayServer((os.environ.get("HOST", "0.0.0.0"), int(os.environ.get("PORT", "8000"))), Relay) as server:
+            print(f"Python listening on {server.server_address[0]}:{server.server_port}", flush=True)
+            server.serve_forever()
     else:
         module = importlib.import_module(f"{args.version}.entity_pb2")
         entity = module.Entity(entity_id="py_101")
