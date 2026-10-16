@@ -69,7 +69,7 @@ if __name__ == "__main__":
     parser.add_argument("--version", choices=["v1", "v2"], default="v1")
     args = parser.parse_args()
     if args.serve:
-        ThreadingHTTPServer(("0.0.0.0", int(os.environ.get("PORT", "8000"))), Relay).serve_forever()
+        ThreadingHTTPServer((os.environ.get("HOST", "0.0.0.0"), int(os.environ.get("PORT", "8000"))), Relay).serve_forever()
     else:
         module = importlib.import_module(f"{args.version}.entity_pb2")
         entity = module.Entity(entity_id="py_101")

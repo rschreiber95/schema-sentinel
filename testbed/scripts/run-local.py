@@ -47,7 +47,7 @@ def main():
                 except OSError as error:
                     raise RuntimeError(f'Port {port} is unavailable. Stop the program using it and try again.') from error
         for command, runtime in zip(commands, ['csharp', 'typescript', 'python']):
-            env = dict(os.environ, ASPNETCORE_URLS='http://127.0.0.1:8002', PORT='8001' if runtime == 'typescript' else '8000',
+            env = dict(os.environ, ASPNETCORE_URLS='http://127.0.0.1:8002', HOST='127.0.0.1', PORT='8001' if runtime == 'typescript' else '8000',
                        TYPESCRIPT_RELAY_URL='http://127.0.0.1:8001/relay', CSHARP_RELAY_URL='http://127.0.0.1:8002/relay')
             with (log_dir / f'{runtime}.log').open('w') as log:
                 processes.append(subprocess.Popen(command, cwd=ROOT, env=env, stdout=log, stderr=subprocess.STDOUT))
@@ -78,6 +78,8 @@ def main():
                                env=dict(os.environ, PYTHON_RELAY_URL='http://127.0.0.1:8000/relay'))
     except (RuntimeError, OSError) as error:
         print(f'Error: {error}', file=sys.stderr)
+        for log in sorted(log_dir.glob('*.log')):
+            print(f'\n--- {log.name} ---\n' + log.read_text(encoding='utf-8', errors='replace')[-4000:], file=sys.stderr)
         return 1
     except KeyboardInterrupt:
         print('\nServices stopped.')
