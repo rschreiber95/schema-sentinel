@@ -1,11 +1,8 @@
 PYTHON ?= .venv/bin/python
 .PHONY: all setup build generate run-python run-csharp run-ts run-all test-unit test-local test-docker descriptors
-all: build test-unit test-local
+all: test-local
 setup:
-	python3 -m venv .venv
-	.venv/bin/python -m pip install -r runtimes/python/requirements.txt
-	npm ci --prefix runtimes/typescript
-	dotnet restore runtimes/csharp/CsharpApp.csproj
+	python3 run_local.py setup
 build:
 	npm run build --prefix runtimes/typescript
 	dotnet build runtimes/csharp/CsharpApp.csproj --configuration Release
@@ -22,8 +19,8 @@ run-ts:
 run-all: run-python run-csharp run-ts
 test-unit:
 	$(PYTHON) -m unittest discover -s testbed/tests -p 'test_*.py' -v
-test-local: build test-unit
-	$(PYTHON) testbed/scripts/run-local.py
+test-local:
+	python3 run_local.py test
 test-docker:
 	./testbed/scripts/test-roundtrip.sh
 descriptors:

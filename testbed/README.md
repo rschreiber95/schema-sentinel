@@ -1,80 +1,83 @@
-# Cross-runtime testbed
+# Testbed development
 
-The testbed uses `../proto/v1/entity.proto` and the generated bindings in
-`../generated/`. Runtime code lives only in `../runtimes/`; Docker and local runs
-execute the same code. v2 is the deletion fixture for the change detector, not
-the relay contract.
+Start with the [local setup instructions](../README.md). All commands below run
+from the repository root.
 
-```text
-client -> Python (:8000) -> TypeScript (:8001) -> C# (:8002) -> client
+## Start all services
+
+Windows:
+
+```powershell
+py run_local.py start
 ```
 
-## Local workflow
+macOS and Linux:
 
-From the repository root, with Python 3.10+, Node.js 22, and .NET 8 installed:
-
-```bash
-make setup
-make test-local
+```sh
+python3 run_local.py start
 ```
 
-The command builds both compiled runtimes, runs evidence unit tests, starts the
-services, awaits their health checks, and stops them after the integration test.
-Decoded field logs remain in `testbed/artifacts/{python,typescript,csharp}.log`.
+This builds the code and keeps all three services running. Dependencies must
+already be installed by the first run. Press Ctrl+C to stop the services.
 
-For interactive development, run these in three terminals from the repository
-root after `make setup` and `make build`:
+| Service | Health check |
+| --- | --- |
+| Python | http://127.0.0.1:8000/health |
+| TypeScript | http://127.0.0.1:8001/health |
+| C# | http://127.0.0.1:8002/health |
 
-```bash
-ASPNETCORE_URLS=http://localhost:8002 dotnet run --no-build --configuration Release --project runtimes/csharp/CsharpApp.csproj -- --serve
-PORT=8001 npm start --prefix runtimes/typescript -- --serve
-PORT=8000 .venv/bin/python runtimes/python/main.py --serve
+Open a health-check URL in your browser to confirm that a service is running.
+Logs are saved in `testbed/artifacts/python.log`, `typescript.log`, and `csharp.log`.
+
+To send the four test messages while the services are running, open a second terminal:
+
+```powershell
+# Windows
+.venv\Scripts\python.exe testbed/tests/e2e_test.py
 ```
 
-Then use a fourth terminal:
-
-```bash
+```sh
+# macOS and Linux
 .venv/bin/python testbed/tests/e2e_test.py
-curl http://localhost:8000/health
 ```
 
-Stop each interactive service with Ctrl+C. Override `TYPESCRIPT_RELAY_URL` on
-Python and `CSHARP_RELAY_URL` on TypeScript to change downstream addresses;
-override `PYTHON_RELAY_URL` when running the test. C# uses `ASPNETCORE_URLS`.
-The automated local runner deliberately uses ports 8000–8002 and localhost.
+Each test checks the fields decoded by Python, TypeScript, and C#, the returned
+message, and the service order. The cases use normal strings, empty strings,
+Unicode, and escaped text.
 
-## Docker workflow
+## Run individual examples
 
-From the repository root:
+These print one decoded entity and exit. They do not start servers.
 
-```bash
-make test-docker
+```powershell
+# Windows
+.venv\Scripts\python.exe runtimes/python/main.py
 ```
 
-Or run `./testbed/scripts/test-roundtrip.sh`. The script returns the test exit
-code and tears down its Compose services. For an interactive session:
-
-```bash
-cd testbed
-docker compose up --build
-# In a second terminal:
-docker compose --profile test run --rm roundtrip-test
-# When finished:
-docker compose --profile test down --remove-orphans
+```sh
+# macOS and Linux
+.venv/bin/python runtimes/python/main.py
 ```
 
-## Acceptance criteria
+These commands work on all three operating systems after setup and a build:
 
-Four cases cover ordinary values, proto3 defaults, Unicode, and escaped text.
-For each case, each runtime must report exactly the expected `entity_id` and
-`name`, and the returned protobuf must preserve those fields. Observation order
-must be Python, TypeScript, C#. The separate service trace must be exactly
-`["python","typescript","csharp"]`.
+```sh
+npm start --prefix runtimes/typescript
+dotnet run --project runtimes/csharp/CsharpApp.csproj
+```
 
-Relays print structured JSON before forwarding. Response header
-`X-Schema-Sentinel-Observations` carries those decoder observations; the test
-prints the expected values, each decoder's values, and the trace.
-`X-Service-Trace` carries the changing transport trace, leaving the canonical
-Entity schema unchanged. These headers are trusted testbed evidence, not a
-production audit system. The negative unit tests prove a wrong intermediate
-observation fails even when the final payload is correct.
+Add `--version v2` to the Python command, `-- --v2` to the npm command, or
+`-- --v2` to the dotnet command to use the existing name-removal example.
+The HTTP test uses v1.
+
+## Docker (optional)
+
+With Docker Compose installed, run:
+
+```sh
+docker compose -f testbed/compose.yaml --profile test up --build --abort-on-container-exit --exit-code-from roundtrip-test
+docker compose -f testbed/compose.yaml --profile test down --remove-orphans
+```
+
+The second command removes the test containers. On macOS and Linux,
+`make test-docker` runs both steps automatically.

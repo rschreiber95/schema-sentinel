@@ -1,70 +1,75 @@
 # Schema Sentinel
 
-UCF Senior Design project exploring safe, AI-assisted propagation of canonical
-schema changes across software runtimes. Generated patches require validation
-and human review; this repository does not implement the full proposed pipeline.
+UCF Senior Design project for testing schema changes across Python, TypeScript,
+and C#. The testbed sends one Protobuf `Entity` through all three services and
+checks that each service reads the same `entity_id` and `name`.
 
-The current baseline includes versioned Protobuf `Entity` schemas, generated
-Python/TypeScript/C# bindings, small runtime examples and HTTP relays, a
-cross-runtime conformance test, and an experimental Buf/Semgrep/Tree-sitter
-impact locator.
+## Run locally
 
-## Develop and test locally (Docker optional)
+Install these tools, then reopen your terminal:
 
-Install Python 3.10+, Node.js 22 with npm, and the .NET 8 SDK. From the repository root:
+| Tool | Version |
+| --- | --- |
+| [Python](https://www.python.org/downloads/) | 3.10 or newer |
+| [Node.js and npm](https://nodejs.org/en/download) | Node.js 22 or newer |
+| [.NET SDK](https://dotnet.microsoft.com/en-us/download/dotnet/8.0) | 8.0 SDK |
 
-```bash
-make setup
-make test-local
+Use the PR branch. For a new clone:
+
+```sh
+git clone --branch codex/SS-19-SS-20-SS-34-testbed https://github.com/rschreiber95/schema-sentinel.git
+cd schema-sentinel
 ```
 
-`setup` creates `.venv`, installs locked TypeScript dependencies in
-`runtimes/typescript`, and restores the C# project. `test-local` builds the
-runtimes, runs the evidence unit tests, starts all three relays, waits for health,
-runs four conformance cases, and stops its processes. Ports 8000–8002 must be free.
-Runtime logs with decoded field values are saved in `testbed/artifacts/`.
+For an existing clone, run `git fetch origin` and
+`git switch codex/SS-19-SS-20-SS-34-testbed` first.
 
-Run the standalone examples:
+### Windows (PowerShell or Command Prompt)
 
-```bash
-make run-all
-# Or: make run-python / make run-ts / make run-csharp
-.venv/bin/python runtimes/python/main.py --version v2
-npm start --prefix runtimes/typescript -- --v2
-dotnet run --project runtimes/csharp/CsharpApp.csproj -- --v2
+```powershell
+py run_local.py
 ```
 
-To develop a relay independently, see [testbed/README.md](testbed/README.md).
+If `py` is unavailable, use `python run_local.py`.
 
-## Run the full test with Docker
+### macOS and Linux
 
-Install Docker with Compose, then run from the repository root:
-
-```bash
-make test-docker
+```sh
+python3 run_local.py
 ```
 
-This builds the same runtime sources, runs the integration test, returns its exit
-status, and removes the Compose containers. Local language toolchains are not
-required for this route. No Docker dependency is required for local development.
+The script installs the project dependencies, builds the runtimes, runs the unit
+tests, and sends four test messages through Python -> TypeScript -> C#. It stops
+the services when finished. Docker, Make, and Buf are not needed for this run.
+The first run needs an internet connection to download dependencies.
 
-## Canonical schema and conformance
+The last line should be:
 
-- `proto/v1/entity.proto`: `simulation.v1.Entity` has `entity_id` and `name`.
-- `proto/v2/entity.proto`: `simulation.v2.Entity` keeps `entity_id` and removes `name`.
-- `generated/`: the committed language bindings from `main`; `buf generate`
-  regenerates them when the schema changes (requires Buf and network access).
-- `runtimes/`: the single implementation per language, supporting standalone
-  examples for v1/v2 and the v1 HTTP relay.
-- `testbed/`: orchestration, Dockerfiles, and tests; it defines no competing schema.
+```text
+PASS: 4 cases; all three decoders agree on stable fields; service trace verified separately
+```
 
-The integration route is `client -> Python -> TypeScript -> C# -> client`.
-Every relay prints and returns an observation of the fields it actually decoded.
-The test compares every runtime's `entity_id` and `name` with the same expected
-values and also checks the final payload. The changing service trace is asserted
-separately as HTTP metadata. Empty strings, Unicode, and escaped text are included.
-This is a v1 conformance baseline, not a claim that v1 and v2 are semantically
-interchangeable. The transport is intentionally small HTTP, not yet pub/sub.
+To repeat the checks without reinstalling dependencies, add `test` to the command.
+To keep the services running for development, add `start`. Press Ctrl+C to stop them.
 
-See [READ.md](READ.md) for the experimental change/impact workflow and
-[the architecture decision](docs/decisions/0001-two-service-testbed.md).
+## Common setup problems
+
+- **Missing `node`, `npm`, or `dotnet`:** install the tools above and reopen the
+  terminal. For .NET, choose the **8.0 SDK**, not just the runtime.
+- **Python is missing:** install Python. On Windows, enable its command-line
+  shortcuts; on Linux, your distribution may also require `python3-venv`.
+- **`run_local.py` is missing:** check out the PR branch and run from the folder
+  containing this README.
+- **A port is unavailable:** stop the program using ports 8000, 8001, or 8002.
+- **A service fails:** check its log in `testbed/artifacts/`.
+
+## Project files
+
+- `proto/`: v1 has `entity_id` and `name`; v2 removes `name`.
+- `generated/`: Protobuf bindings used by the runtimes.
+- `runtimes/`: Python, TypeScript, and C# service code.
+- `testbed/`: tests, logs, and the local service runner.
+
+See [testbed development](testbed/README.md) for individual service commands and
+optional Docker commands. The [impact locator guide](docs/impact-locator.md)
+covers the separate Buf, Semgrep, and Tree-sitter prototype.
