@@ -123,7 +123,7 @@ TREE_SITTER_QUERIES = {
           object: (identifier) @obj
           property: (property_identifier) @field (#eq? @field "{field}"))
     """,
-    "csharp": """
+    "c_sharp": """
         (member_access_expression
           expression: (identifier) @obj
           name: (identifier) @field (#eq? @field "{field}"))
@@ -158,7 +158,7 @@ RUNTIME_DIR = "runtimes"
 LANGUAGE_EXTENSIONS = {
     ".py": "python",
     ".ts": "typescript",
-    ".cs": "csharp",
+    ".cs": "c_sharp",
 }
 
 
@@ -191,7 +191,7 @@ def run_treesitter_analysis(impacted_fields: List[Dict[str, str]]):
         )
 
         for file_path, lang_name in runtime_files:
-            target_field = pascal_field if lang_name == "csharp" else field
+            target_field = pascal_field if lang_name == "c_sharp" else field
 
             try:
                 analyze_file_with_treesitter(
