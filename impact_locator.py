@@ -80,22 +80,35 @@ def analyze_with_semgrep(impacted_fields: List[Dict[str, str]]):
         pascal_field = field[0].upper() + field[1:] if field else field
 
         rules.append({
-            "id": f"impacted-field-py-ts-{idx}",
-            "languages": ["python", "typescript"],
+            "id": f"impacted-field-py-{idx}",
+            "languages": ["python"],
             "severity": "ERROR",
             "message": f"Usage of deleted/modified Protobuf field '{field}' on '{item['message']}'",
-            "patterns": [
-                {"pattern-either": [{"pattern": f"$X.{field}"}, {"pattern": f"$X.{field} = $Y"}]}
-            ]
+            "pattern-either": [
+                {"pattern": f"$X.{field}"},                # read:   entity.name
+                {"pattern": f"$F(..., {field}=$V, ...)"},  # create: Entity(name=...)
+            ],
+        })
+        rules.append({
+            "id": f"impacted-field-ts-{idx}",
+            "languages": ["typescript"],
+            "severity": "ERROR",
+            "message": f"Usage of deleted/modified Protobuf field '{field}' on '{item['message']}'",
+            "pattern-either": [
+                {"pattern": f"$X.{field}"},                 # read:   entity.name
+                {"pattern": f"{{..., {field}: $V, ...}}"},  # create: {name: ...}
+            ],
         })
         rules.append({
             "id": f"impacted-field-csharp-{idx}",
             "languages": ["csharp"],
             "severity": "ERROR",
             "message": f"Usage of deleted/modified Protobuf field '{pascal_field}' on '{item['message']}'",
-            "patterns": [
-                {"pattern-either": [{"pattern": f"$X.{pascal_field}"}, {"pattern": f"$X.{pascal_field} = $Y"}]}
-            ]
+            "pattern-either": [
+                {"pattern": f"$X.{pascal_field}"},                           # read:       entity.Name
+                {"pattern": f"new $T {{ ..., {pascal_field} = $V, ... }}"},  # create:     new Entity {Name = ...}
+                {"pattern": f'$X.GetProperty("{pascal_field}")'},            # reflection: GetProperty("Name")
+            ],
         })
 
     semgrep_config = {"rules": rules}
@@ -117,16 +130,23 @@ TREE_SITTER_QUERIES = {
         (attribute
           object: (identifier) @obj
           attribute: (identifier) @field (#eq? @field "{field}"))
+        (keyword_argument
+          name: (identifier) @field (#eq? @field "{field}"))
     """,
     "typescript": """
         (member_expression
           object: (identifier) @obj
           property: (property_identifier) @field (#eq? @field "{field}"))
+        (pair
+          key: (property_identifier) @field (#eq? @field "{field}"))
     """,
     "c_sharp": """
         (member_access_expression
           expression: (identifier) @obj
           name: (identifier) @field (#eq? @field "{field}"))
+        (initializer_expression
+          (assignment_expression
+            left: (identifier) @field (#eq? @field "{field}")))
     """
 }
 
