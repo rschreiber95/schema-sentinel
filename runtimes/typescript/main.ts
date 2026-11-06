@@ -1,36 +1,62 @@
-import { Entity as EntityV1 } from "../generated/ts/v1/entity";
+import { createServer, IncomingMessage } from "node:http";
+import { Entity as EntityV1 } from "../../generated/ts/v1/entity";
+import { Entity as EntityV2 } from "../../generated/ts/v2/entity";
 
-async function processEntity(rawBytes: Uint8Array, version: string) {
-  let module: any;
+const observationsHeader = "X-Schema-Sentinel-Observations";
+const traceHeader = "X-Service-Trace";
 
-  try {
-    // Dynamic ES module import based on version string
-    module = await import(`../generated/ts/${version}/entity`);
-  } catch (err) {
-    throw new Error(`Unsupported schema version: ${version}`);
-  }
-
-  // ts-proto exports helper namespace matching the type name (Entity)
-  const EntityCodec = module.Entity;
-
-  // Deserialize raw byte array
-  const entity = EntityCodec.decode(rawBytes);
-
-  // Read field values directly from resulting object
-  console.log(`[TypeScript (${version})] entityId: ${entity.entityId}`);
-  console.log(`[TypeScript (${version})] name:     ${entity.name}`);
-
-  if (version === "v2" && entity.description) {
-    console.log(`[TypeScript (${version})] description: ${entity.description}`);
-  }
+export function processEntity(rawBytes: Uint8Array, version: string) {
+  if (version !== "v1" && version !== "v2") throw new Error(`Unsupported schema version: ${version}`);
+  const entity = version === "v1" ? EntityV1.decode(rawBytes) : EntityV2.decode(rawBytes);
+  const fields = { entity_id: entity.entityId, ...(version === "v1" ? { name: (entity as EntityV1).name } : {}) };
+  console.log(JSON.stringify({ runtime: "typescript", version, fields }));
+  return { entity, fields };
 }
 
-async function main() {
-  // Example usage creating mock v1 payload
-  const mockV1: EntityV1 = { entityId: "ts_303", name: "Sensor C" };
-  const bytes = EntityV1.encode(mockV1).finish();
-
-  await processEntity(bytes, "v1");
+async function readBody(request: IncomingMessage): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of request) chunks.push(Buffer.from(chunk));
+  return Buffer.concat(chunks);
 }
 
-main();
+if (process.argv.includes("--serve")) {
+  createServer(async (request, response) => {
+    if (request.method === "GET" && request.url === "/health") {
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ status: "ok", runtime: "typescript" }));
+      return;
+    }
+    if (request.method !== "POST" || request.url !== "/relay") {
+      response.writeHead(404); response.end(); return;
+    }
+    try {
+      const { entity, fields } = processEntity(await readBody(request), "v1");
+      const trace = JSON.parse(String(request.headers[traceHeader.toLowerCase()] ?? "[]"));
+      trace.push("typescript");
+      const downstream = await fetch(process.env.CSHARP_RELAY_URL ?? "http://localhost:8002/relay", {
+        method: "POST",
+        headers: { "content-type": "application/x-protobuf", [traceHeader]: JSON.stringify(trace) },
+        body: Buffer.from(EntityV1.encode(entity as EntityV1).finish()),
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!downstream.ok) throw new Error(`C# relay returned ${downstream.status}`);
+      const body = Buffer.from(await downstream.arrayBuffer());
+      const observations = [{ runtime: "typescript", fields }, ...JSON.parse(downstream.headers.get(observationsHeader) ?? "null")];
+      response.writeHead(200, {
+        "content-type": "application/x-protobuf", "content-length": body.length,
+        [observationsHeader]: JSON.stringify(observations).replace(/[\u007f-\uffff]/g, c => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`),
+        [traceHeader]: downstream.headers.get(traceHeader) ?? "[]",
+      });
+      response.end(body);
+    } catch (error) {
+      response.writeHead(400, { "content-type": "application/json" });
+      response.end(JSON.stringify({ error: String(error) }));
+    }
+  }).listen(Number(process.env.PORT ?? "8001"), "0.0.0.0");
+} else {
+  const version = process.argv.includes("--v2") ? "v2" : "v1";
+  const bytes = version === "v1"
+    ? EntityV1.encode({ entityId: "ts_303", name: "Sensor C" }).finish()
+    : EntityV2.encode({ entityId: "ts_303" }).finish();
+  processEntity(bytes, version);
+}

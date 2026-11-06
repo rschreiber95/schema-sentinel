@@ -1,0 +1,77 @@
+services:
+  csharp-service:
+    build:
+      context: ..
+      dockerfile: testbed/services/csharp/Dockerfile
+    environment:
+      ASPNETCORE_URLS: http://0.0.0.0:8002
+    ports:
+      - "8002:8002"
+    healthcheck:
+      test:
+        - CMD
+        - dotnet
+        - CsharpApp.dll
+        - --healthcheck
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+  typescript-service:
+    build:
+      context: ..
+      dockerfile: testbed/services/typescript/Dockerfile
+    environment:
+      PORT: "8001"
+      CSHARP_RELAY_URL: http://csharp-service:8002/relay
+    ports:
+      - "8001:8001"
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - fetch('http://localhost:8001/health').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))
+      interval: 2s
+      timeout: 2s
+      retries: 15
+    depends_on:
+      csharp-service:
+        condition: service_healthy
+
+  python-service:
+    build:
+      context: ..
+      dockerfile: testbed/services/python/Dockerfile
+    environment:
+      PORT: "8000"
+      TYPESCRIPT_RELAY_URL: http://typescript-service:8001/relay
+    ports:
+      - "8000:8000"
+    depends_on:
+      typescript-service:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=1)"
+      interval: 2s
+      timeout: 2s
+      retries: 15
+
+  roundtrip-test:
+    profiles:
+      - test
+    build:
+      context: ..
+      dockerfile: testbed/services/python/Dockerfile
+    environment:
+      PYTHON_RELAY_URL: http://python-service:8000/relay
+    depends_on:
+      python-service:
+        condition: service_healthy
+    command:
+      - python
+      - testbed/tests/e2e_test.py
