@@ -75,8 +75,8 @@ Press Enter at each pause to advance. Omit `--pause` for an unattended run.
 The demo uses a copied workspace and retains logs, a repair diff and a JSON
 report under `testbed/artifacts/field-removal/`. The normal testbed remains on
 v1. This is a validation example with a prepared repair; it does not generate
-patches using AI or merge them. See the [VS Code presenter guide](docs/field-removal-demo.md)
-for preparation, exact steps, expected output and limitations.
+patches using AI or merge them. The existing versioned fixtures also change the
+package name; their generated bindings are reused rather than regenerated.
 
 ## Common setup problems
 

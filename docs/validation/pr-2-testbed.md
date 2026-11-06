@@ -44,4 +44,4 @@ The repair changes only the demo copy. It is a reference repair, not model
 output. The committed versioned schemas/bindings are reused and are not regenerated.
 The workflow now runs this demo on Windows, macOS and Ubuntu and uploads the logs,
 diffs and JSON reports as artifacts. Check the run for the current commit before
-claiming operating-system acceptance. See the [presenter guide](../field-removal-demo.md).
+claiming operating-system acceptance.
