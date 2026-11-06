@@ -1,0 +1,6 @@
+# Keep the authored repair and its source context consistent on every platform.
+*.py text eol=lf
+*.ts text eol=lf
+*.cs text eol=lf
+# Unified diffs contain a required space on blank context lines.
+*.patch text eol=lf -whitespace

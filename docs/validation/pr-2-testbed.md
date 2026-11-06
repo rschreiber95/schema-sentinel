@@ -28,3 +28,20 @@ Results appear in the PR checks.
 
 The schema files, generated bindings, descriptor fixtures, and impact locator
 source are unchanged by this PR.
+
+## Field-removal demo - November 5, 2026
+
+Added `run_field_removal.py` and an authored repair fixture. The unattended and
+interactive (`--pause`) demonstrations passed locally on macOS:
+
+- Baseline v1: TypeScript/C# builds, 14 unit tests, four HTTP round-trip cases.
+- Broken v2 selection: Python missing `name`, TypeScript TS2339/TS2353 and
+  C# CS1061/CS0117, all captured from real commands with nonzero exit codes.
+- Repaired v2: clean TypeScript/C# builds, 15 unit tests and four HTTP round trips.
+  Decoder observations contain only the retained `entity_id`.
+
+The repair changes only the demo copy. It is a reference repair, not model
+output. The committed versioned schemas/bindings are reused and are not regenerated.
+The workflow now runs this demo on Windows, macOS and Ubuntu and uploads the logs,
+diffs and JSON reports as artifacts. Check the run for the current commit before
+claiming operating-system acceptance. See the [presenter guide](../field-removal-demo.md).

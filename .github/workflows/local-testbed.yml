@@ -30,3 +30,15 @@ jobs:
           dotnet-version: '8.0.x'
       - name: Set up, build, and test
         run: python run_local.py
+      - name: Demonstrate field removal and authored repair
+        run: python run_field_removal.py
+      - name: Keep field-removal evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: field-removal-${{ matrix.os }}
+          path: |
+            testbed/artifacts/field-removal/run-*/*.log
+            testbed/artifacts/field-removal/run-*/*.json
+            testbed/artifacts/field-removal/run-*/*.diff
+            testbed/artifacts/field-removal/run-*/*.patch

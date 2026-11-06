@@ -64,6 +64,20 @@ The final line should read `PASS: 4/4 round-trip cases passed.`
 To repeat the checks without reinstalling dependencies, add `test` to the command.
 To keep the services running for development, add `start`. Press Ctrl+C to stop them.
 
+## Demonstrate a schema change and repair
+
+After setup, run `python3 run_field_removal.py --pause` (Windows:
+`py run_field_removal.py --pause`). It runs the v1 baseline, selects the existing
+v2 bindings while retaining stale `name` accesses, verifies real failures in all
+three languages, then applies an authored reference repair and validates v2.
+Press Enter at each pause to advance. Omit `--pause` for an unattended run.
+
+The demo uses a copied workspace and retains logs, a repair diff and a JSON
+report under `testbed/artifacts/field-removal/`. The normal testbed remains on
+v1. This is a validation example with a prepared repair; it does not generate
+patches using AI or merge them. See the [VS Code presenter guide](docs/field-removal-demo.md)
+for preparation, exact steps, expected output and limitations.
+
 ## Common setup problems
 
 - **Missing `node`, `npm`, or `dotnet`:** install the tools above and reopen the
