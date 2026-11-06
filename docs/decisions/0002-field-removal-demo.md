@@ -8,7 +8,7 @@ Extend the three-service testbed with a demonstration that must:
 2. Select the committed v2 bindings while retaining stale application accesses.
 3. Observe a Python missing-field error and TypeScript/C# compiler errors about
    `name`/`Name`. Unrelated dependency or startup failures do not count.
-4. Apply a checked-in, human-authored repair proposal in the copied workspace.
+4. Apply a checked-in reference repair proposal in the copied workspace.
 5. Rebuild from clean compiler outputs and pass the v2 unit and round-trip tests.
    Each decoder must report exactly `entity_id`, preserving its input value.
    Negative controls reject incorrect intermediate values, missing runtimes,
