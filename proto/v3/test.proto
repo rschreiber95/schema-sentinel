@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+message Vehicle {
+    int32 id = 1;
+    string name = 2;
+    float speed = 3;
+    DamageState damage = 4;
+}
+
+enum DamageState {
+    UNDAMAGED = 0;
+    DAMAGED = 1;
+    DESTROYED = 2;
+    RETIRED = 3;
+}
