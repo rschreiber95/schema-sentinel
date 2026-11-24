@@ -1,0 +1,44 @@
+name: Local testbed
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Set up, build, and test
+        run: python run_local.py
+      - name: Demonstrate field removal and authored repair
+        run: python run_field_removal.py
+      - name: Keep field-removal evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: field-removal-${{ matrix.os }}
+          path: |
+            testbed/artifacts/field-removal/run-*/*.log
+            testbed/artifacts/field-removal/run-*/*.json
+            testbed/artifacts/field-removal/run-*/*.diff
+            testbed/artifacts/field-removal/run-*/*.patch

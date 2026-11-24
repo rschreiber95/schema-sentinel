@@ -1,45 +1,68 @@
-using System;
-using System;
-using System.Reflection;
+using System.Text.Json;
 using Google.Protobuf;
 
-class Program
+const string observationsHeader = "X-Schema-Sentinel-Observations";
+const string traceHeader = "X-Service-Trace";
+
+static (IMessage Entity, Dictionary<string, string> Fields) ProcessEntity(byte[] rawBytes, string version)
 {
-    static void ProcessEntity(byte[] rawBytes, string version)
+    IMessage entity;
+    Dictionary<string, string> fields;
+    if (version == "v1")
     {
-        // 1. Build namespace and class name string (e.g. "Simulation.V1.Entity")
-        string targetNamespace = $"Simulation.{version.ToUpper()}";
-        string fullClassName = $"{targetNamespace}.Entity";
-
-        // 2. Resolve the compiled Type via reflection
-        Type entityType = Type.GetType(fullClassName);
-        if (entityType == null)
-        {
-            throw new ArgumentException($"Unsupported version: {version}");
-        }
-
-        // 3. Access static Parser property generated on Protobuf class
-        PropertyInfo parserProperty = entityType.GetProperty("Parser", BindingFlags.Public | BindingFlags.Static);
-        var parser = parserProperty.GetValue(null);
-
-        // 4. Invoke ParseFrom(byte[]) method on the parser
-        MethodInfo parseFromMethod = parser.GetType().GetMethod("ParseFrom", new[] { typeof(byte[]) });
-        IMessage entity = (IMessage)parseFromMethod.Invoke(parser, new object[] { rawBytes });
-
-        // 5. Read fields using PropertyInfo
-        string entityId = (string)entityType.GetProperty("EntityId").GetValue(entity);
-        string name = (string)entityType.GetProperty("Name").GetValue(entity);
-
-        Console.WriteLine($"[C# ({version})] entityId: {entityId}");
-        Console.WriteLine($"[C# ({version})] name:     {name}");
+        var decoded = Simulation.V1.Entity.Parser.ParseFrom(rawBytes);
+        entity = decoded;
+        fields = new() { ["entity_id"] = decoded.EntityId, ["name"] = decoded.Name };
     }
-
-    static void Main()
+    else if (version == "v2")
     {
-        // Example usage with Simulation.V1.Entity
-        var mockV1 = new Simulation.V1.Entity { EntityId = "cs_202", Name = "Sensor B" };
-        byte[] bytes = mockV1.ToByteArray();
-
-        ProcessEntity(bytes, "v1");
+        var decoded = Simulation.V2.Entity.Parser.ParseFrom(rawBytes);
+        entity = decoded;
+        fields = new() { ["entity_id"] = decoded.EntityId };
     }
+    else throw new ArgumentException($"Unsupported version: {version}");
+    Console.WriteLine(JsonSerializer.Serialize(new { runtime = "csharp", version, fields }));
+    return (entity, fields);
 }
+
+if (args.Contains("--healthcheck"))
+{
+    using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(1) };
+    try { return (await client.GetAsync("http://localhost:8002/health")).IsSuccessStatusCode ? 0 : 1; }
+    catch (Exception error) when (error is HttpRequestException or TaskCanceledException) { return 1; }
+}
+if (!args.Contains("--serve"))
+{
+    var version = args.Contains("--v2") ? "v2" : "v1";
+    IMessage entity = version == "v1"
+        ? new Simulation.V1.Entity { EntityId = "cs_202", Name = "Sensor B" }
+        : new Simulation.V2.Entity { EntityId = "cs_202" };
+    ProcessEntity(entity.ToByteArray(), version);
+    return 0;
+}
+var builder = WebApplication.CreateBuilder(args.Where(arg => arg != "--serve").ToArray());
+var app = builder.Build();
+app.MapGet("/health", () => Results.Json(new { status = "ok", runtime = "csharp" }));
+app.MapPost("/relay", async (HttpRequest request, HttpResponse response) =>
+{
+    try
+    {
+        using var body = new MemoryStream();
+        await request.Body.CopyToAsync(body);
+        var (entity, fields) = ProcessEntity(body.ToArray(), "v1");
+        var trace = JsonSerializer.Deserialize<List<string>>(request.Headers[traceHeader].FirstOrDefault() ?? "[]")
+            ?? throw new JsonException("Trace must be an array");
+        trace.Add("csharp");
+        response.Headers[observationsHeader] = JsonSerializer.Serialize(new[] { new { runtime = "csharp", fields } });
+        response.Headers[traceHeader] = JsonSerializer.Serialize(trace);
+        response.ContentType = "application/x-protobuf";
+        await response.Body.WriteAsync(entity.ToByteArray());
+    }
+    catch (Exception error) when (error is InvalidProtocolBufferException or JsonException)
+    {
+        response.StatusCode = 400;
+        await response.WriteAsJsonAsync(new { error = error.Message });
+    }
+});
+app.Run();
+return 0;

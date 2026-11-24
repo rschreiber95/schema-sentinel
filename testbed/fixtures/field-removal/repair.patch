@@ -1,0 +1,207 @@
+--- a/runtimes/python/main.py
++++ b/runtimes/python/main.py
+@@ -23,12 +23,10 @@
+ 
+ 
+ def process_entity(raw_bytes: bytes, version: str):
+-    if version not in ("v1", "v2"):
++    if version != "v2":
+         raise ValueError(f"Unsupported schema version: {version}")
+     entity = importlib.import_module("v2.entity_pb2").Entity.FromString(raw_bytes)
+     fields = {"entity_id": entity.entity_id}
+-    if version == "v1":
+-        fields["name"] = entity.name
+     print(json.dumps({"runtime": "python", "version": version, "fields": fields}, ensure_ascii=True), flush=True)
+     return entity, fields
+ 
+@@ -47,7 +45,7 @@
+             self.send_error(404)
+             return
+         try:
+-            entity, fields = process_entity(self.rfile.read(int(self.headers.get("Content-Length", "0"))), "v1")
++            entity, fields = process_entity(self.rfile.read(int(self.headers.get("Content-Length", "0"))), "v2")
+             observation = {"runtime": "python", "fields": fields}
+             request = urllib.request.Request(
+                 os.environ.get("TYPESCRIPT_RELAY_URL", "http://localhost:8001/relay"),
+@@ -74,7 +72,7 @@
+ if __name__ == "__main__":
+     parser = argparse.ArgumentParser()
+     parser.add_argument("--serve", action="store_true")
+-    parser.add_argument("--version", choices=["v1", "v2"], default="v1")
++    parser.add_argument("--version", choices=["v2"], default="v2")
+     args = parser.parse_args()
+     if args.serve:
+         with RelayServer((os.environ.get("HOST", "0.0.0.0"), int(os.environ.get("PORT", "8000"))), Relay) as server:
+@@ -83,6 +81,4 @@
+     else:
+         module = importlib.import_module("v2.entity_pb2")
+         entity = module.Entity(entity_id="py_101")
+-        if args.version == "v1":
+-            entity.name = "Sensor A"
+         process_entity(entity.SerializeToString(), args.version)
+--- a/runtimes/typescript/main.ts
++++ b/runtimes/typescript/main.ts
+@@ -1,14 +1,13 @@
+ import { createServer, IncomingMessage } from "node:http";
+-import { Entity as EntityV1 } from "../../generated/ts/v2/entity";
+-import { Entity as EntityV2 } from "../../generated/ts/v2/entity";
++import { Entity } from "../../generated/ts/v2/entity";
+ 
+ const observationsHeader = "X-Schema-Sentinel-Observations";
+ const traceHeader = "X-Service-Trace";
+ 
+ export function processEntity(rawBytes: Uint8Array, version: string) {
+-  if (version !== "v1" && version !== "v2") throw new Error(`Unsupported schema version: ${version}`);
+-  const entity = version === "v1" ? EntityV1.decode(rawBytes) : EntityV2.decode(rawBytes);
+-  const fields = { entity_id: entity.entityId, ...(version === "v1" ? { name: (entity as EntityV1).name } : {}) };
++  if (version !== "v2") throw new Error(`Unsupported schema version: ${version}`);
++  const entity = Entity.decode(rawBytes);
++  const fields = { entity_id: entity.entityId };
+   console.log(JSON.stringify({ runtime: "typescript", version, fields }));
+   return { entity, fields };
+ }
+@@ -30,13 +29,13 @@
+       response.writeHead(404); response.end(); return;
+     }
+     try {
+-      const { entity, fields } = processEntity(await readBody(request), "v1");
++      const { entity, fields } = processEntity(await readBody(request), "v2");
+       const trace = JSON.parse(String(request.headers[traceHeader.toLowerCase()] ?? "[]"));
+       trace.push("typescript");
+       const downstream = await fetch(process.env.CSHARP_RELAY_URL ?? "http://localhost:8002/relay", {
+         method: "POST",
+         headers: { "content-type": "application/x-protobuf", [traceHeader]: JSON.stringify(trace) },
+-        body: Buffer.from(EntityV1.encode(entity as EntityV1).finish()),
++        body: Buffer.from(Entity.encode(entity).finish()),
+         signal: AbortSignal.timeout(5000),
+       });
+       if (!downstream.ok) throw new Error(`C# relay returned ${downstream.status}`);
+@@ -54,9 +53,7 @@
+     }
+   }).listen(Number(process.env.PORT ?? "8001"), "0.0.0.0");
+ } else {
+-  const version = process.argv.includes("--v2") ? "v2" : "v1";
+-  const bytes = version === "v1"
+-    ? EntityV1.encode({ entityId: "ts_303", name: "Sensor C" }).finish()
+-    : EntityV2.encode({ entityId: "ts_303" }).finish();
++  const version = "v2";
++  const bytes = Entity.encode({ entityId: "ts_303" }).finish();
+   processEntity(bytes, version);
+ }
+--- a/runtimes/csharp/main.cs
++++ b/runtimes/csharp/main.cs
+@@ -8,13 +8,7 @@
+ {
+     IMessage entity;
+     Dictionary<string, string> fields;
+-    if (version == "v1")
+-    {
+-        var decoded = Simulation.V2.Entity.Parser.ParseFrom(rawBytes);
+-        entity = decoded;
+-        fields = new() { ["entity_id"] = decoded.EntityId, ["name"] = decoded.Name };
+-    }
+-    else if (version == "v2")
++    if (version == "v2")
+     {
+         var decoded = Simulation.V2.Entity.Parser.ParseFrom(rawBytes);
+         entity = decoded;
+@@ -33,10 +27,8 @@
+ }
+ if (!args.Contains("--serve"))
+ {
+-    var version = args.Contains("--v2") ? "v2" : "v1";
+-    IMessage entity = version == "v1"
+-        ? new Simulation.V2.Entity { EntityId = "cs_202", Name = "Sensor B" }
+-        : new Simulation.V2.Entity { EntityId = "cs_202" };
++    var version = "v2";
++    IMessage entity = new Simulation.V2.Entity { EntityId = "cs_202" };
+     ProcessEntity(entity.ToByteArray(), version);
+     return 0;
+ }
+@@ -49,7 +41,7 @@
+     {
+         using var body = new MemoryStream();
+         await request.Body.CopyToAsync(body);
+-        var (entity, fields) = ProcessEntity(body.ToArray(), "v1");
++        var (entity, fields) = ProcessEntity(body.ToArray(), "v2");
+         var trace = JsonSerializer.Deserialize<List<string>>(request.Headers[traceHeader].FirstOrDefault() ?? "[]")
+             ?? throw new JsonException("Trace must be an array");
+         trace.Add("csharp");
+--- a/testbed/tests/e2e_test.py
++++ b/testbed/tests/e2e_test.py
+@@ -6,14 +6,17 @@
+ import urllib.request
+ 
+ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'generated/python'))
+-from v1.entity_pb2 import Entity
++from v2.entity_pb2 import Entity
++
++# Independent v2 oracle: the public descriptor must contain only the retained field.
++assert set(Entity.DESCRIPTOR.fields_by_name) == {"entity_id"}, "Expected v2 with name removed"
+ 
+ RUNTIMES = ['python', 'typescript', 'csharp']
+ CASES = [
+-    {'entity_id': 'roundtrip-001', 'name': 'Sensor A'},
+-    {'entity_id': '', 'name': ''},
+-    {'entity_id': 'entity-雪-🚀', 'name': 'Café / Δ / 🚀'},
+-    {'entity_id': 'entity-004', 'name': 'quotes " and newline\n and backslash \\'},
++    {'entity_id': 'roundtrip-001'},
++    {'entity_id': ''},
++    {'entity_id': 'entity-雪-🚀'},
++    {'entity_id': 'quotes " and newline\n and backslash \\'},
+ ]
+ CASE_NAMES = ['Standard text', 'Empty strings', 'Unicode', 'Escaped text']
+ RUNTIME_NAMES = {'python': 'Python', 'typescript': 'TypeScript', 'csharp': 'C#'}
+@@ -37,7 +40,7 @@
+     assert [item['runtime'] for item in observations] == RUNTIMES, 'missing or reordered decoder observations'
+     for item in observations:
+         assert item['fields'] == expected, f"{item['runtime']} decoded different stable fields: {item['fields']!r}"
+-    actual = {'entity_id': received.entity_id, 'name': received.name}
++    actual = {'entity_id': received.entity_id}
+     assert actual == expected, f'final stable fields changed: {actual!r}'
+     # The service trace is intentionally changing transport metadata, not an Entity field.
+     assert trace == RUNTIMES, f'incorrect service trace: {trace!r}'
+@@ -71,7 +74,7 @@
+             runtime = RUNTIME_NAMES[observation['runtime']]
+             print(f'    {runtime} [PASS]: {format_fields(observation["fields"])}')
+         print_encoded('Encoded response', returned_bytes)
+-        print(f'  Decoded response [PASS]: {format_fields({"entity_id": received.entity_id, "name": received.name})}')
++        print(f'  Decoded response [PASS]: {format_fields({"entity_id": received.entity_id})}')
+         print('  Service order [PASS]: ' + ' -> '.join(RUNTIME_NAMES[runtime] for runtime in trace) + '\n')
+     print(f'PASS: {len(CASES)}/{len(CASES)} round-trip cases passed.')
+ 
+--- a/testbed/tests/test_evidence.py
++++ b/testbed/tests/test_evidence.py
+@@ -5,7 +5,7 @@
+ 
+ class EvidenceTests(unittest.TestCase):
+     def setUp(self):
+-        self.fields = {'entity_id': '001', 'name': 'Sensor A'}
++        self.fields = {'entity_id': '001'}
+         self.message = Entity(**self.fields)
+         self.observations = [{'runtime': runtime, 'fields': dict(self.fields)} for runtime in RUNTIMES]
+ 
+@@ -14,7 +14,13 @@
+ 
+     def test_intermediate_misdecode_fails_even_when_final_payload_matches(self):
+         observations = copy.deepcopy(self.observations)
+-        observations[1]['fields']['name'] = 'wrong'
++        observations[1]['fields']['entity_id'] = 'wrong'
++        with self.assertRaisesRegex(AssertionError, 'typescript decoded'):
++            validate_evidence(self.fields, self.message, observations, RUNTIMES)
++
++    def test_removed_field_observation_fails(self):
++        observations = copy.deepcopy(self.observations)
++        observations[1]['fields']['name'] = 'stale'
+         with self.assertRaisesRegex(AssertionError, 'typescript decoded'):
+             validate_evidence(self.fields, self.message, observations, RUNTIMES)
+ 
+@@ -24,7 +30,7 @@
+ 
+     def test_final_payload_change_fails(self):
+         with self.assertRaisesRegex(AssertionError, 'final stable fields'):
+-            validate_evidence(self.fields, Entity(entity_id='wrong', name='Sensor A'), self.observations, RUNTIMES)
++            validate_evidence(self.fields, Entity(entity_id='wrong'), self.observations, RUNTIMES)
+ 
+     def test_trace_fails_separately(self):
+         with self.assertRaisesRegex(AssertionError, 'incorrect service trace'):
